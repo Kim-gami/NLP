@@ -31,7 +31,7 @@ def tokenize_and_encode(texts, labels):
     for text, label in zip(texts, labels):
         encoded = tokenizer.encode_plus(
             text, max_length = 512, padding = 'max_length', truncation = True)
-        input_ids.append(encoded['attention_masks'])
+        input_ids.append(encoded['input_ids'])
         attention_masks.append(encoded['attention_mask'])
         labels_out.append(label)
     return torch.tensor(input_ids), torch.tensor(attention_masks), torch.tensor(labels_out)
@@ -98,13 +98,13 @@ model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
 
 #파인튜닝
 num_epochs = 1
-num_trainning_steps = num-epochs * len(train_dataloader)
+num_training_steps = num_epochs * len(train_dataloader)
 lr_scheduler = get_scheduler(
     "linear",
     optimizer = optimizer,
     num_warmup_steps = 0,
-    num_training_steps = num_trainning_steps)
-progress_bar = tdqm(range(num_trainning_steps))
+    num_training_steps = num_training_steps)
+progress_bar = tqdm(range(num_training_steps))
 
 for epoch in range(num_epochs):
     for batch in train_dataloader:
@@ -116,7 +116,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         progress_bar.update(1)
     model.eval()
-    device = 'mps'
+    device = accelerator.device
     preds = []
     out_label_ids = []
     epochs = 1
@@ -124,7 +124,7 @@ for epoch in range(num_epochs):
 
     for batch in eval_dataloader:
         with torch.no_grad():
-            inputs = {k : v.to(device) for k, v in batch.item()}
+            inputs = {k : v.to(device) for k, v in batch.items()}
             outputs = model(**inputs)
             logits = outputs.logits
 
@@ -141,7 +141,7 @@ def inference(text, model, label, device = device):
     inputs = {k : v.to(device) for k, v in inputs.items()}
 
     model.eval()
-    with.torch.no_grad():
+    with torch.no_grad():
         outputs = model(**inputs)
         logits = outputs.logits
 
