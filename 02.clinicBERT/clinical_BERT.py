@@ -35,9 +35,10 @@ def create_sentence_dataframe(df):
 data_txt = pd.read_csv("archive/medical_data.csv")
 data = create_sentence_dataframe(data_txt)
 
-class ClinizalDataset(Dataset):
+class ClinicalDataset(Dataset):
     def __init__(self, data, tokenizer, max_length = 512):
-        self.data = dataself.tokenizer = tokenizer
+        self.data = data
+        self.tokenizer = tokenizer
         self.max_length = max_length
 
     def __len__(self):
@@ -52,14 +53,14 @@ class ClinizalDataset(Dataset):
 
         combined_news = news + " [SEP] " + next_news
         tokenized = self.tokenizer(combined_news, truncation = True, padding = 'max_length',
-                                   max_length = self.max_length, return_tensor = 'pt')
+                                   max_length = self.max_length, return_tensors = 'pt')
         return {'input_ids' : tokenized['input_ids'].squeeze(0),
                 'attention_mask' : tokenized['attention_mask'].squeeze(0),
                 'text' : combined_news}
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-dataset = ClinizalDataset(data, tokenizer)
+dataset = ClinicalDataset(data, tokenizer)
 
 class DataCollatorForPreTraining(DataCollatorForLanguageModeling):
     def __init__(self, tokenizer, mlm = True, mlm_probability = 0.15, nsp_probability = 0.5):
@@ -103,7 +104,7 @@ class DataCollatorForPreTraining(DataCollatorForLanguageModeling):
         return batch
 
 data_collator = DataCollatorForPreTraining(tokenizer)
-train_dataloader = DataLoader(    dataset, shuffle=True, collate_fn=data_collator, batch_size=16)
+train_dataloader = DataLoader(dataset, shuffle=True, collate_fn=data_collator, batch_size=16)
 
 config = BertConfig.from_pretrained('bert-base-uncased')
 model = BertForPreTraining(config)
