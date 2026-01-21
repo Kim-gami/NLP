@@ -57,10 +57,10 @@ def pad_collate(batch):
         attention_masks_batch.append(attention_mask)
 
     input_ids_tensor = torch.stack(input_ids_batch, dim = 0)
-    attetion_masks_tensor = torch.stack(attention_masks_batch, dim = 0)
+    attention_masks_tensor = torch.stack(attention_masks_batch, dim = 0)
     labels_tensor = torch.tensor([item['label'] for item in batch], dtype = torch.long)
 
-    return {'input_ids' : input_ids_tensor, 'attention_mask' : attetion_masks_tensor, 'labels' : labels_tensor}
+    return {'input_ids' : input_ids_tensor, 'attention_mask' : attention_masks_tensor, 'labels' : labels_tensor}
 
 train_loader = DataLoader(train_dataset, batch_size = 2, shuffle = True, collate_fn = pad_collate)
 test_loader = DataLoader(test_dataset, batch_size = 2, shuffle = True, collate_fn = pad_collate)
