@@ -11,6 +11,11 @@ from torch.utils.data import DataLoader
 from peft import LoraConfig, get_peft_model, get_peft_model_state_dict
 from peft import prepare_model_for_kbit_training
 import transformers
+from peft import PeftModel, PeftConfig
+import textwrap
+from peft import PeftModel
+from transformers import LlamaTokenizer, LlamaForCausalLM, GenerationConfig
+from transformers.generation.utils import GreedySearchDecoderOnlyOutput
 
 base_directory = './MedQuAD-master'
 
@@ -25,8 +30,8 @@ def convert_xml_to_json(xml_file):
 
     questions = xml_dict['Document']['QAPairs']['QAPair']
 
-    if not isinstance(question, list):
-        question = [question]
+    if not isinstance(questions, list):
+        questions = [questions]
 
     json_data = []
 
@@ -87,9 +92,7 @@ def generate_prompt(data_point):
 
 {data_point['output']}'''
 
-train_data1 = load_dataset('json', data_files = base_directory+"alpaca_data.json", split="train[:90%]")
-valid_data2 = load_dataset('json', data_files = base_directory+"alpaca_data.json", split="train[90%:]")
-data_train = train_data1.shuffle().map(
+data_train = train_data.shuffle().map(
     lambda data_point : tokenizer(
         generate_prompt(data_point),
         truncation = True,
@@ -97,7 +100,7 @@ data_train = train_data1.shuffle().map(
         padding = 'max_length'
     )
 )
-data_valid = valid_data2.shuffle().map(
+data_valid = valid_data.shuffle().map(
     lambda data_point : tokenizer(
         generate_prompt(data_point),
         truncation = True,
@@ -171,3 +174,78 @@ model.config.use_cache = False
 trainer.train(resume_from_checkpoint=False)
 
 model.save_pretrained(base_directory+"chatbot")
+
+peft_model_id = base_directory + 'chatbot'
+
+config = PeftConfig.from_pretrained(peft_model_id)
+
+model = LlamaForCausalLM.from_pretrained(
+    BASE_MODEL,
+    torch_dtype = torch.float16,
+    device_map = 'auto'
+)
+
+model = PeftModel.from_pretrained(
+    model,
+    peft_model_id,
+    torch_dtype = torch.float16,
+    offload_buffers = True
+)
+
+tokenizer = LlamaTokenizer.from_pretrained(BASE_MODEL)
+
+if torch.cuda.is_available():
+    model = model.to('cuda')
+else:
+    model = model.to('cpu')
+
+model.eval()
+
+input_text = 'Hello, how can I assist you today?'
+input_ids = tokenizer.encode(input_text, return_tensors='pt').to(model.device)
+
+outputs = model.generate(input_ids, max_length = 50)
+print(tokenizer.decode(outputs[0], skip_special_tokens = True))
+
+def ask_ai_doctor(instruction : str, model : PeftModel) -> str:
+    PROMPT_TEMPLATE = f'''
+    Below is an instruction that describes a task. Write a response that appropriately completes the request
+
+    ### Instruction:
+    [INSTRUCTION]
+
+    ### Response:
+    '''
+
+    prompt = PROMPT_TEMPLATE.replace('[INSTRUCTION]', instruction)
+
+    encoding = tokenizer(prompt, return_tensors='pt')
+    input_ids = encoding['input_ids'].to(device)
+
+    '''
+    controls various aspects of the text generation process.
+    temperature: This parameter (set to 0.1) controls the randomness of the generated text. lower value more determenistic; higher value more random
+    top_p: This parameter (set to 0.75) is also called nucleus sampling. In our case, the model will only consider tokens that make up the top 75% of probabilities for the next word
+    repetition_penalty: This parameter (set to 1.1) is used to penalize repetitions in the generated text. A value greater than 1 helps to reduce the frequency of repeated phrases
+    '''
+    generation_config = GenerationConfig(
+        temperature = 0.1,
+        top_p = 0.75,
+        repetition_penalty = 1.1
+    )
+
+    with torch.inference_mode():
+        response = model.generate(
+            input_ids = input_ids,
+            generation_config = generation_config,
+            return_dict_in_generate = True,
+            output_scores = True,
+            max_new_tokens = 250
+        )
+
+    decoded_output = tokenizer.decode(response.sequences[0])
+    formatted_response = decoded_output.split('### Response:')[1].strip()
+
+    return '\n'.join(textwrap.wrap(formatted_response))
+
+print(ask_ai_doctor('What are symptoms of Cirrhosis?', model))
