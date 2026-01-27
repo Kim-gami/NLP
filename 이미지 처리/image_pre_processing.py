@@ -25,6 +25,5 @@ transforms = T.Compose([
 augmented_img = transforms(img)
 
 unnormalized_img = T.Compose([
-    T.Normalize(mean = [-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.255],
-                std = [1 / 0.229, 1 / 0.224, 1 / 0.255])(augmented_img)
-    
+    T.Normalize(mean = [-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
+                std = [1 / 0.229, 1 / 0.224, 1 / 0.225])(augmented_img)
