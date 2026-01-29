@@ -39,7 +39,7 @@ test_transforms = transforms.Compose([
 
 class CatraractDataset(Dataset):
     def __init__(self, image_paths, labels, transform = None):
-        self.image_paths = img_path
+        self.image_paths = image_paths
         self.labels = labels
         self.transform = transform
 
