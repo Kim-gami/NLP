@@ -221,9 +221,20 @@ def train(config, model, noise_scheduler, optimizer, train_dataloader, lr_schedu
 
 train(config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
 
+from diffusers import DDIMPipeline
 
 model_id = './image_gen1/'
-
-from diffusers import DDIMPipeline
 ddim = DDIMPipeline.from_pretrained(model_id).to('cuda')
 
+image = ddim().images[0]
+image.show()
+
+generated_images = ddim(batch_size = 6).images
+
+num_rows = 2
+num_cols = 3
+
+width, height = generated_images[0].size
+grid = Image.new('RGB', size = (num_cols * width, num_rows * height))
+
+grid.show()
